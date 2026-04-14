@@ -1,0 +1,169 @@
+# Logging functions.
+#
+# Use a period(.) prefix for these functions, to avoid name collision with
+# other commands.
+#
+# All these functions, except .fatal, emit a message level followed by all
+# their arguments. The .fatal function uses the first argument as the exit
+# code, and uses the remaining arguments as do other functions.
+function .debug()   { if [[ ! -z "$DEBUG_FROM_LOGGING_FUNCTIONS" ]]; then
+                      echo   "DEBUG: $@" >&2;
+                      fi                      }
+function .info()    { echo    "INFO: $@" >&1; }
+function .notice()  { echo  "NOTICE: $@" >&1; }
+function .warning() { echo "WARNING: $@" >&2; }
+function .error()   { echo   "ERROR: $@" >&2; }
+function .fatalmsg(){ echo   "FATAL: $@" >&2; }
+function .fatal()
+{
+    local exitCode="$1";
+    shift;
+    .fatalmsg "$@";
+    exit "$exitCode";
+}
+
+# Code from https://stackoverflow.com/a/62757929/382700
+function stacktrace()
+{
+    echo >&2 Call stack:
+    local i=1 line file func
+    while read -r line func file < <(caller $i); do
+        echo >&2 "[$i] $file:$line $func(): $(sed -n ${line}p $file)"
+        ((i++))
+    done
+}
+
+local repo_path="$(cd ../; pwd)"  # "$PWD/.."" does not yeild the desired result from
+                            # the basename command below.
+local repo_basename="$(basename "$repo_path")"
+local dot_tools_path="$repo_path/.tools"
+
+# See the comment in ./codex/config.toml for an explanation of why and
+# how we use `/var/tmp/...` hard-coded path.
+local var_tmp_path="/var/tmp/$repo_basename"
+[[ ! -e "$var_tmp_path" ]] && ln -s "$repo_path" "$var_tmp_path"
+
+###############################################################################
+#
+# Any variable values that you _don't_ want to be checked into the Git
+# repository should be added to the ./tools/.envrc.local file, since that file
+# is excluded from Git tracking via .gitignore
+#
+# This file should be sourced/included before any of the values specified in it
+# can be used by rest of the commands.
+#
+###############################################################################
+local f="./.tools/.envrc.local"
+source_env "$f"                     \
+    && .debug Done sourcing "$f"    \
+|| .error: Failed to source "$f"
+
+#
+# *************** NOTICE ***************
+#
+# Any code that needs to be executed for top-level repository as well as once
+# each for each of the submodules, should go _above_ this NOTICE.
+#
+# The code that needs to be executed exactly once per top-level repository goes
+# _below_ this NOTICE.
+#
+
+if [[ -z "$DOT_ENVRC_DOT_GLOBAL_INCLUDED" ]]; then
+
+DOT_ENVRC_DOT_GLOBAL_INCLUDED=yes
+
+.debug "$dot_tools_path/.envrc.global is being included."
+
+# This variable cannot be qualified with 'local' since it's used by subsequent
+# function calls.
+dot_envrc_dot_global_local_commands_dir="$dot_tools_path/bin"
+
+local hardlink_count="$(find "$repo_path" -name .envrc.global -print0 | xargs -0 ls -i | cut -d ' ' -f 1 | sort --unique | wc -l)"
+hardlink_count="$(echo $hardlink_count)" # Get rid of extraneous whitespace
+
+if [[ $hardlink_count != "1" ]]; then
+    .notice "Expected hardlink count of .envrc.global to be 1, but found $hardlink_count."
+    .notice "******** INSPECT THE FILES BELOW ********"
+    find "$repo_path" -name .envrc.global -print0 | xargs -0 ls -i | sort
+fi
+
+function remove_local_command()
+(
+  local name="$1"
+  local target="$dot_envrc_dot_global_local_commands_dir/$name"
+
+  # Ignore the error if the file is not present
+  /bin/rm -f "$target"
+)
+
+# Adapted from https://github.com/direnv/direnv/issues/73#issuecomment-152284914
+function make_local_command()
+{
+  # This function should not use the sub-shell syntax for its body (i.e. use
+  # { and } instead of ( and ) to wrap its body), since it needs to change an
+  # environment variable ($PATH, using direnv's PATH_add) in the invoking
+  # shell's environment.
+
+  local name="$1"
+  local args_except_first=("${@:2}")
+  local target="$dot_envrc_dot_global_local_commands_dir/$name"
+
+  # A possible optimization is that we can check if $target exists, and perform
+  # these expensive filesystem operations only if $target is not already
+  # present. But I chose to not implement that optimization because it would
+  # lead to the undesirable behaviour where someone changes the definition of a
+  # local command, but that change would not take effect until they remove the
+  # $target and rerun `direnv allow`. In absence of that optimization, direnv
+  # will automatically emit a warning whenever a local command's definition is
+  # changed in this file, and remind the user to execute `direnv allow`.
+
+  # Create the $dot_envrc_dot_global_local_commands_dir, if it doesn't already exist
+  mkdir -p "$dot_envrc_dot_global_local_commands_dir"
+
+  # If the $command_dir is not the first element of $PATH, use direnv's
+  # built-in function to add it to $PATH.
+  if [[ "$PATH" != "$dot_envrc_dot_global_local_commands_dir:"* ]]; then
+    PATH_add "$dot_envrc_dot_global_local_commands_dir"
+  fi
+
+  echo "#!/usr/bin/env bash" > "$target"
+  echo >> "$target"
+  echo '# This file was generated by make_local_command() function.' >> "$target"
+  echo >> "$target"
+
+  echo "$args_except_first" >> "$target"
+  chmod +x "$target"
+}
+
+# Create a local command to find items at a specific depth; no higher and no
+# lower than the exact depth that we're interested in.
+make_local_command find_exactdepth '
+function main()
+(
+    local depth="${1:-0}" # default depth: 0
+    local path="${2:-./}" # default path: ./
+
+    # pass rest of the arguments to the find command
+    find "$path" -mindepth "$depth" -maxdepth "$depth" "${@:3}"
+)
+
+main "$@"
+' # End of make_local_command invocation above
+
+# Remove the local command so that `which` usage below does _not_ pick it up
+remove_local_command codex
+local codex_path="$(which codex)"
+make_local_command codex \"${codex_path}\"' --cd "'$var_tmp_path'" "$@"'
+
+export GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-Founder}
+export GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-founder@}
+
+export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+
+export CODEX_HOME="$dot_tools_path/codex"
+
+else # Else of if [[ -z "$DOT_ENVRC_DOT_GLOBAL_INCLUDED" ]]
+.debug .envrc.global is NOT being included since it has already been included
+fi # End of if [[ -z "$DOT_ENVRC_DOT_GLOBAL_INCLUDED" ]]
+

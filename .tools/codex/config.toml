@@ -1,0 +1,25 @@
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+personality = "pragmatic"
+
+# Use the following command to create a symbolic link to the source directory.
+# Doing so will let the "projects" path defined below resolve for use in Codex.
+# Be sure to execute Codex cli with the --cd option to make it use this
+# directory; if you don't do so, Codex will resolve the symlink and use the
+# /actual/location/of/EZGPhotos. A local command defined in .envrc takes care of
+# this, so executing `codex` will automatically use this option.
+#
+# The location `/var/tmp/` was used here because the `project."xyz"` section
+# below requires an absolute path, and I do not wish to document the actual
+# location of this project on my filesysten. `/var/tmp/` being the only
+# world-writable directory defined in Filesystem Hierarchy Standard that
+# preserves its contents between reboots, is a good fit for the purpose when
+# used in conhjunction with the soft-link.
+#
+# ln -s /actual/location/of/EZGPhotos /var/tmp/
+#
+# codex --cd /var/tmp/EZGPhotos
+
+[projects."/var/tmp/EZGPhotos"]
+trust_level = "trusted"
+
