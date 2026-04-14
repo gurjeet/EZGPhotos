@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EZGPhotos</title>
+    <style>
+      :root {
+        color: #f7f2e8;
+        background: linear-gradient(180deg, #18212b, #0b0f13);
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+      }
+      body {
+        margin: 0;
+        width: 320px;
+      }
+      main {
+        padding: 18px;
+      }
+      h1, p {
+        margin: 0;
+      }
+      p {
+        color: #c2ccda;
+      }
+      .eyebrow {
+        color: #f6b15e;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 11px;
+        margin-bottom: 6px;
+      }
+      .actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      button, a {
+        border: none;
+        border-radius: 999px;
+        padding: 12px 14px;
+        text-align: center;
+        text-decoration: none;
+        font: inherit;
+        cursor: pointer;
+      }
+      .primary {
+        background: linear-gradient(135deg, #f6b15e, #ef6b3b);
+        color: #131820;
+        font-weight: 700;
+      }
+      .secondary {
+        background: rgba(255, 255, 255, 0.08);
+        color: #f7f2e8;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">EZGPhotos</p>
+      <h1>Google Photos helper</h1>
+      <p>Open Google Photos in this browser. The extension overlays album shortcuts directly on the page.</p>
+      <div class="actions">
+        <button id="open-photos" class="primary" type="button">Open Google Photos</button>
+        <a id="open-login" class="secondary" href="https://photos.google.com/login" target="_blank" rel="noreferrer">Login with Google</a>
+      </div>
+    </main>
+    <script type="module" src="/src/extension/popup/popup.ts"></script>
+  </body>
+  </html>
