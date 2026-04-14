@@ -54,7 +54,7 @@ local var_tmp_path="/var/tmp/$repo_basename"
 #
 ###############################################################################
 local f="./.tools/.envrc.local"
-source_env "$f"                     \
+source_env_if_exists "$f"           \
     && .debug Done sourcing "$f"    \
 || .error: Failed to source "$f"
 
